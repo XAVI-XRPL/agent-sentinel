@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Sentinel — AI Smart Contract Auditor</title>
+    <link rel="icon" type="image/png" href="xavi-logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0f0a;
+            --bg-surface: #111a11;
+            --bg-card: #162016;
+            --bg-elevated: #1d281d;
+            --primary: #22C55E;
+            --primary-light: #4ADE80;
+            --primary-dark: #16A34A;
+            --primary-glow: rgba(34, 197, 94, 0.3);
+            --accent: #86EFAC;
+            --sentinel-purple: #8B5CF6;
+            --text-primary: #F0FDF4;
+            --text-secondary: #BBF7D0;
+            --text-muted: #6B8E6B;
+            --border: #1F3D1F;
+            --border-light: #2D5A2D;
+            --success: #22C55E;
+            --warning: #F59E0B;
+            --error: #EF4444;
+            --critical: #DC2626;
+            --high: #EA580C;
+            --medium: #D97706;
+            --low: #65A30D;
+            --info: #06B6D4;
+            --gradient-sentinel: linear-gradient(135deg, var(--primary) 0%, var(--sentinel-purple) 100%);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(34, 197, 94, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(34, 197, 94, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+        
+        .bg-glow {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(34, 197, 94, 0.08) 0%, transparent 40%),
+                        radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 40%);
+            pointer-events: none;
+        }
+        
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 24px;
+            background: rgba(10, 15, 10, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+        }
+        
+        .nav-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        
+        .logo img { height: 36px; }
+        .logo-text { font-weight: 800; font-size: 20px; }
+        .logo-text span { color: var(--primary); }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-surface);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        .nav-tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab:hover { color: var(--text-primary); }
+        .nav-tab.active { background: var(--primary); color: white; }
+        
+        .connect-btn {
+            padding: 12px 24px;
+            background: var(--gradient-sentinel);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .connect-btn.connected {
+            background: var(--bg-surface);
+            border: 1px solid var(--success);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 100px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero {
+            text-align: center;
+            margin-bottom: 48px;
+            padding-top: 20px;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-surface);
+            border: 1px solid var(--primary);
+            border-radius: 24px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 44px;
+            font-weight: 800;
+            margin-bottom: 14px;
+        }
+        
+        h1 .gradient {
+            background: var(--gradient-sentinel);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        /* Stats */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-item {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        
+        /* Search */
+        .search-section {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+        
+        .search-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .search-row {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 16px 20px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+        }
+        
+        .search-input:focus {
+            border-color: var(--primary);
+        }
+        
+        .search-btn {
+            padding: 16px 32px;
+            background: var(--primary);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .search-btn:hover {
+            background: var(--primary-light);
+        }
+        
+        /* Audit Result */
+        .audit-result {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            margin-bottom: 32px;
+            display: none;
+        }
+        
+        .audit-result.show {
+            display: block;
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+        
+        .result-contract {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .result-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        /* Score Circle */
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+        
+        .score-value {
+            font-size: 32px;
+            line-height: 1;
+        }
+        
+        .score-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        .score-critical { background: linear-gradient(135deg, var(--critical), #991B1B); color: white; }
+        .score-high { background: linear-gradient(135deg, var(--high), #C2410C); color: white; }
+        .score-medium { background: linear-gradient(135deg, var(--medium), #B45309); color: white; }
+        .score-low { background: linear-gradient(135deg, var(--low), #4D7C0F); color: white; }
+        .score-clean { background: linear-gradient(135deg, var(--success), var(--primary-dark)); color: white; }
+        
+        /* Issue Counts */
+        .issue-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .issue-item {
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .issue-item.critical { background: rgba(220, 38, 38, 0.15); border: 1px solid var(--critical); }
+        .issue-item.high { background: rgba(234, 88, 12, 0.15); border: 1px solid var(--high); }
+        .issue-item.medium { background: rgba(217, 119, 6, 0.15); border: 1px solid var(--medium); }
+        .issue-item.low { background: rgba(101, 163, 13, 0.15); border: 1px solid var(--low); }
+        
+        .issue-count {
+            font-size: 28px;
+            font-weight: 800;
+        }
+        
+        .issue-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+        
+        /* Request Audit */
+        .request-section {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+        }
+        
+        .request-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .fee-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .fee-amount {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        
+        .fee-label {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        
+        /* Xavi Contracts */
+        .xavi-section {
+            margin-top: 48px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .contracts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+        }
+        
+        .contract-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        
+        .contract-card:hover {
+            border-color: var(--primary);
+        }
+        
+        .contract-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .contract-name {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        
+        .contract-score {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        
+        .contract-address {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .audited-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--success);
+        }
+        
+        .pending-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid var(--warning);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--warning);
+        }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--error); }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        @media (max-width: 900px) {
+            h1 { font-size: 32px; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .issue-grid { grid-template-columns: repeat(2, 1fr); }
+            .contracts-grid { grid-template-columns: 1fr; }
+            .nav-tabs { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+    
+    <nav>
+        <div class="nav-inner">
+            <a href="https://xavi-site.vercel.app" class="logo">
+                <img src="xavi-logo.png" alt="XAVI">
+                <span class="logo-text">Agent <span>Sentinel</span></span>
+            </a>
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showPage('explorer')">Audit Explorer</button>
+                <button class="nav-tab" onclick="showPage('request')">Request Audit</button>
+                <button class="nav-tab" onclick="showPage('xavi')">Xavi's Contracts</button>
+            </div>
+            <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="hero">
+            <div class="hero-badge">🛡️ AI-Powered Security</div>
+            <h1>Agent <span class="gradient">Sentinel</span></h1>
+            <p class="subtitle">Autonomous AI auditor for smart contracts on XRPL EVM. On-chain security scores, IPFS reports, and public accountability.</p>
+        </div>
+        
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="totalAudits">0</div>
+                <div class="stat-label">Audits Completed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avgScore">-</div>
+                <div class="stat-label">Avg Score</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="pendingRequests">0</div>
+                <div class="stat-label">Pending Requests</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">5 XRP</div>
+                <div class="stat-label">Min Audit Fee</div>
+            </div>
+        </div>
+        
+        <!-- Explorer Page -->
+        <div class="page active" id="explorerPage">
+            <div class="search-section">
+                <h2 class="search-title">🔍 Check Audit Status</h2>
+                <div class="search-row">
+                    <input type="text" class="search-input" id="searchAddress" placeholder="Enter contract address (0x...)">
+                    <button class="search-btn" onclick="searchAudit()">Search</button>
+                </div>
+            </div>
+            
+            <div class="audit-result" id="auditResult">
+                <div class="result-header">
+                    <div>
+                        <div class="result-contract" id="resultContract">0x...</div>
+                        <h3 class="result-title" id="resultTitle">Audit Report</h3>
+                    </div>
+                    <div class="score-circle score-clean" id="scoreCircle">
+                        <span class="score-value" id="scoreValue">-</span>
+                        <span class="score-label">SCORE</span>
+                    </div>
+                </div>
+                
+                <div class="issue-grid">
+                    <div class="issue-item critical">
+                        <div class="issue-count" id="criticalCount">0</div>
+                        <div class="issue-label">Critical</div>
+                    </div>
+                    <div class="issue-item high">
+                        <div class="issue-count" id="highCount">0</div>
+                        <div class="issue-label">High</div>
+                    </div>
+                    <div class="issue-item medium">
+                        <div class="issue-count" id="mediumCount">0</div>
+                        <div class="issue-label">Medium</div>
+                    </div>
+                    <div class="issue-item low">
+                        <div class="issue-count" id="lowCount">0</div>
+                        <div class="issue-label">Low</div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <a href="#" class="search-btn" id="reportLink" target="_blank" style="text-decoration: none;">📄 View Full Report</a>
+                    <a href="#" class="search-btn" id="explorerLink" target="_blank" style="text-decoration: none; background: var(--sentinel-purple);">🔗 Explorer</a>
+                </div>
+            </div>
+            
+            <div class="audit-result" id="notAuditedResult" style="text-align: center;">
+                <h3 style="margin-bottom: 16px;">❌ Contract Not Audited</h3>
+                <p style="color: var(--text-muted); margin-bottom: 20px;">This contract has not been audited by Sentinel yet.</p>
+                <button class="search-btn" onclick="showPage('request')">Request Audit →</button>
+            </div>
+        </div>
+        
+        <!-- Request Page -->
+        <div class="page" id="requestPage">
+            <div class="request-section">
+                <h2 class="request-title">📝 Request an Audit</h2>
+                
+                <div class="fee-info">
+                    <div>
+                        <div class="fee-amount">5+ XRP</div>
+                        <div class="fee-label">Minimum audit fee</div>
+                    </div>
+                    <div style="flex: 1; text-align: right; color: var(--text-muted); font-size: 13px;">
+                        Xavi contracts get free audits!
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; color: var(--text-muted);">Contract Address</label>
+                    <input type="text" class="search-input" id="requestAddress" placeholder="0x..." style="width: 100%;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; color: var(--text-muted);">Payment Amount (XRP)</label>
+                    <input type="number" class="search-input" id="requestAmount" placeholder="5" value="5" min="5" style="width: 100%;">
+                </div>
+                
+                <button class="search-btn" id="requestBtn" onclick="requestAudit()" style="width: 100%;">
+                    🚀 Submit Request
+                </button>
+            </div>
+        </div>
+        
+        <!-- Xavi Contracts Page -->
+        <div class="page" id="xaviPage">
+            <div class="xavi-section">
+                <h2 class="section-title">🦞 Xavi's Audited Contracts</h2>
+                <div class="contracts-grid" id="xaviContracts">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast">
+        <span id="toastIcon">✓</span>
+        <span id="toastMsg">Success!</span>
+    </div>
+
+    <script>
+        const REGISTRY_ADDRESS = '0x4FB5c8Ca58aBb09fD3F62Ce038938A188053571f';
+        const REQUESTS_ADDRESS = '0xCF46E6d477C66205d9035149FA50632E0B88BB2E';
+        const CHAIN_ID = 1440000;
+        const RPC_URL = 'https://rpc.xrplevm.org';
+        
+        const REGISTRY_ABI = [
+            'function getReport(uint256) external view returns (tuple(uint256 id, address contractAudited, address auditor, uint256 timestamp, uint256 overallScore, string reportHash, uint8 riskLevel, uint256 issuesFound, uint256 criticalCount, uint256 highCount, uint256 mediumCount, uint256 lowCount, bool verified))',
+            'function getReportsByContract(address) external view returns (uint256[])',
+            'function getLatestReport(address) external view returns (tuple(uint256 id, address contractAudited, address auditor, uint256 timestamp, uint256 overallScore, string reportHash, uint8 riskLevel, uint256 issuesFound, uint256 criticalCount, uint256 highCount, uint256 mediumCount, uint256 lowCount, bool verified))',
+            'function isAudited(address) external view returns (bool)',
+            'function reportCount() external view returns (uint256)'
+        ];
+        
+        const REQUESTS_ABI = [
+            'function requestAudit(address) external payable',
+            'function requestCount() external view returns (uint256)',
+            'function getPendingRequests() external view returns (uint256[])',
+            'function freeAuditEligible(address) external view returns (bool)'
+        ];
+        
+        const XAVI_CONTRACTS = [
+            { name: 'TipJar', address: '0xe5dBb1aE26662f93A932768EaD38588d6537Ea37' },
+            { name: 'BountyBoard', address: '0x05c3Bd69f5Af459f06146032a78fa4B9C95eDEA0' },
+            { name: 'PredictionMarket', address: '0xb7527F782000c80EB0c142d87A07543f0CA24515' },
+            { name: 'RWA Launchpad', address: '0xe3C0F448a7D36126B782928fAed0C34175d30358' },
+            { name: 'CrossLedger', address: '0x7A44A9eE0D6C6BBf25A16c7DcFf424e8476731C2' },
+            { name: 'Marketplace', address: '0xa20C5Baf735E7585A1294a43b487E33f40B84414' },
+            { name: 'WXRP', address: '0x6F177EC261E7ebd58C488a8a807eb50190c00c9d' },
+            { name: 'XaviFactory', address: '0x648Bd4cD5E2799BdbDF6494a8fb05C1169A75BA2' },
+            { name: 'XaviRouter', address: '0xf3829D62B24Ed8f43d1a4F25f5c14b3f41D794E8' }
+        ];
+        
+        let provider, signer, registry, requests, userAddress;
+        
+        async function connectWallet() {
+            if (!window.ethereum) {
+                showToast('Please install MetaMask!', 'error');
+                return;
+            }
+            
+            try {
+                const chainIdHex = '0x' + CHAIN_ID.toString(16);
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: chainIdHex }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: chainIdHex,
+                                chainName: 'XRPL EVM Sidechain',
+                                nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 18 },
+                                rpcUrls: [RPC_URL],
+                                blockExplorerUrls: ['https://explorer.xrplevm.org'],
+                            }],
+                        });
+                    }
+                }
+                
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                registry = new ethers.Contract(REGISTRY_ADDRESS, REGISTRY_ABI, signer);
+                requests = new ethers.Contract(REQUESTS_ADDRESS, REQUESTS_ABI, signer);
+                
+                const btn = document.getElementById('connectBtn');
+                btn.innerHTML = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                btn.classList.add('connected');
+                
+                showToast('Wallet connected!', 'success');
+                loadStats();
+                
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to connect', 'error');
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const readProvider = new ethers.JsonRpcProvider(RPC_URL);
+                const readRegistry = new ethers.Contract(REGISTRY_ADDRESS, REGISTRY_ABI, readProvider);
+                const readRequests = new ethers.Contract(REQUESTS_ADDRESS, REQUESTS_ABI, readProvider);
+                
+                const reportCount = await readRegistry.reportCount();
+                const pending = await readRequests.getPendingRequests();
+                
+                document.getElementById('totalAudits').textContent = reportCount.toString();
+                document.getElementById('pendingRequests').textContent = pending.length;
+                
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+        
+        async function searchAudit() {
+            const address = document.getElementById('searchAddress').value.trim();
+            if (!address || !address.startsWith('0x')) {
+                showToast('Please enter a valid address', 'error');
+                return;
+            }
+            
+            document.getElementById('auditResult').classList.remove('show');
+            document.getElementById('notAuditedResult').classList.remove('show');
+            
+            try {
+                const readProvider = new ethers.JsonRpcProvider(RPC_URL);
+                const readRegistry = new ethers.Contract(REGISTRY_ADDRESS, REGISTRY_ABI, readProvider);
+                
+                const isAudited = await readRegistry.isAudited(address);
+                
+                if (isAudited) {
+                    const report = await readRegistry.getLatestReport(address);
+                    displayReport(report);
+                } else {
+                    document.getElementById('notAuditedResult').classList.add('show');
+                }
+                
+            } catch (err) {
+                console.error('Search error:', err);
+                document.getElementById('notAuditedResult').classList.add('show');
+            }
+        }
+        
+        function displayReport(report) {
+            document.getElementById('resultContract').textContent = report.contractAudited;
+            document.getElementById('resultTitle').textContent = `Audit Report #${report.id}`;
+            document.getElementById('scoreValue').textContent = report.overallScore.toString();
+            document.getElementById('criticalCount').textContent = report.criticalCount.toString();
+            document.getElementById('highCount').textContent = report.highCount.toString();
+            document.getElementById('mediumCount').textContent = report.mediumCount.toString();
+            document.getElementById('lowCount').textContent = report.lowCount.toString();
+            
+            const scoreCircle = document.getElementById('scoreCircle');
+            scoreCircle.className = 'score-circle';
+            const score = Number(report.overallScore);
+            if (score >= 90) scoreCircle.classList.add('score-clean');
+            else if (score >= 70) scoreCircle.classList.add('score-low');
+            else if (score >= 50) scoreCircle.classList.add('score-medium');
+            else if (score >= 30) scoreCircle.classList.add('score-high');
+            else scoreCircle.classList.add('score-critical');
+            
+            if (report.reportHash) {
+                document.getElementById('reportLink').href = `https://ipfs.io/ipfs/${report.reportHash}`;
+            }
+            document.getElementById('explorerLink').href = `https://explorer.xrplevm.org/address/${report.contractAudited}`;
+            
+            document.getElementById('auditResult').classList.add('show');
+        }
+        
+        async function requestAudit() {
+            const address = document.getElementById('requestAddress').value.trim();
+            const amount = document.getElementById('requestAmount').value;
+            
+            if (!address || !address.startsWith('0x')) {
+                showToast('Please enter a valid address', 'error');
+                return;
+            }
+            
+            if (!userAddress) {
+                showToast('Please connect wallet first', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('requestBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;"></span> Submitting...';
+            
+            try {
+                const tx = await requests.requestAudit(address, {
+                    value: ethers.parseEther(amount.toString())
+                });
+                
+                await tx.wait();
+                
+                showToast('Audit request submitted! 🎉', 'success');
+                document.getElementById('requestAddress').value = '';
+                loadStats();
+                
+            } catch (err) {
+                console.error(err);
+                showToast('Request failed: ' + (err.reason || err.message), 'error');
+            }
+            
+            btn.disabled = false;
+            btn.textContent = '🚀 Submit Request';
+        }
+        
+        async function loadXaviContracts() {
+            const grid = document.getElementById('xaviContracts');
+            const readProvider = new ethers.JsonRpcProvider(RPC_URL);
+            const readRegistry = new ethers.Contract(REGISTRY_ADDRESS, REGISTRY_ABI, readProvider);
+            
+            grid.innerHTML = XAVI_CONTRACTS.map(c => `
+                <div class="contract-card">
+                    <div class="contract-header">
+                        <span class="contract-name">${c.name}</span>
+                        <span class="pending-badge" id="status-${c.address.slice(2, 8)}">⏳ Pending</span>
+                    </div>
+                    <div class="contract-address">${c.address}</div>
+                    <a href="https://explorer.xrplevm.org/address/${c.address}" target="_blank" style="color: var(--primary); font-size: 13px;">View on Explorer →</a>
+                </div>
+            `).join('');
+            
+            // Check audit status for each
+            for (const c of XAVI_CONTRACTS) {
+                try {
+                    const isAudited = await readRegistry.isAudited(c.address);
+                    const statusEl = document.getElementById(`status-${c.address.slice(2, 8)}`);
+                    if (isAudited) {
+                        const report = await readRegistry.getLatestReport(c.address);
+                        statusEl.className = 'audited-badge';
+                        statusEl.innerHTML = `✓ Score: ${report.overallScore}`;
+                    }
+                } catch (e) {}
+            }
+        }
+        
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(page + 'Page').classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (page === 'xavi') loadXaviContracts();
+        }
+        
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastIcon').textContent = type === 'success' ? '✓' : '✗';
+            document.getElementById('toastMsg').textContent = msg;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // Init
+        loadStats();
+        if (window.ethereum?.selectedAddress) connectWallet();
+    </script>
+</body>
+</html>
