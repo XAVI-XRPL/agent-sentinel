@@ -12,6 +12,17 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  */
 contract SentinelRegistry is Ownable, ReentrancyGuard {
     
+    // ============ Constants ============
+    
+    /// @notice Contract version
+    string public constant VERSION = "1.1.0";
+    
+    /// @notice Legal disclaimer
+    string public constant DISCLAIMER = "Reports are AI-generated security analyses, not professional audits. Not financial or security advice.";
+    
+    /// @notice Minimum cooldown between reports from same auditor
+    uint256 public constant REPORT_COOLDOWN = 60 seconds;
+    
     // ============ Enums ============
     
     enum RiskLevel {
@@ -58,6 +69,9 @@ contract SentinelRegistry is Ownable, ReentrancyGuard {
     /// @notice Auditor names
     mapping(address => string) public auditorNames;
     
+    /// @notice Last report timestamp per auditor (for cooldown)
+    mapping(address => uint256) public lastReportTime;
+    
     // ============ Events ============
     
     event ReportPublished(
@@ -81,7 +95,6 @@ contract SentinelRegistry is Ownable, ReentrancyGuard {
     // ============ Constructor ============
     
     constructor() Ownable(msg.sender) {
-        // Register deployer as first auditor (Sentinel)
         isAuditor[msg.sender] = true;
         auditorNames[msg.sender] = "Agent Sentinel";
         emit AuditorRegistered(msg.sender, "Agent Sentinel");
@@ -110,10 +123,25 @@ contract SentinelRegistry is Ownable, ReentrancyGuard {
         uint256 highCount,
         uint256 mediumCount,
         uint256 lowCount
-    ) external onlyAuditor returns (uint256 reportId) {
+    ) external onlyAuditor nonReentrant returns (uint256 reportId) {
+        // Input validation
         require(contractAudited != address(0), "SentinelRegistry: zero address");
-        require(overallScore <= 100, "SentinelRegistry: invalid score");
+        require(overallScore <= 100, "SentinelRegistry: score must be 0-100");
         require(bytes(reportHash).length > 0, "SentinelRegistry: empty report hash");
+        
+        // Issue count consistency check
+        require(
+            criticalCount + highCount + mediumCount + lowCount == issuesFound,
+            "SentinelRegistry: issue count mismatch"
+        );
+        
+        // Cooldown check
+        require(
+            block.timestamp >= lastReportTime[msg.sender] + REPORT_COOLDOWN,
+            "SentinelRegistry: cooldown not met"
+        );
+        
+        lastReportTime[msg.sender] = block.timestamp;
         
         reportCount++;
         reportId = reportCount;
@@ -173,8 +201,17 @@ contract SentinelRegistry is Ownable, ReentrancyGuard {
     
     /// @notice Get total number of contracts audited
     function getAuditedContractsCount() external view returns (uint256 count) {
-        // This is an approximation - counts reports not unique contracts
         return reportCount;
+    }
+    
+    /// @notice Get contract version
+    function getVersion() external pure returns (string memory) {
+        return VERSION;
+    }
+    
+    /// @notice Get disclaimer
+    function getDisclaimer() external pure returns (string memory) {
+        return DISCLAIMER;
     }
     
     // ============ Admin Functions ============
@@ -198,5 +235,10 @@ contract SentinelRegistry is Ownable, ReentrancyGuard {
         delete auditorNames[auditor];
         
         emit AuditorRemoved(auditor);
+    }
+    
+    /// @notice Prevent accidental ownership renounce
+    function renounceOwnership() public pure override {
+        revert("SentinelRegistry: renounce disabled");
     }
 }
